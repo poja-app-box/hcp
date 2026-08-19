@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: hcp-37762aa0 - Computation and API
+
+Globals:
+  Function:
+    CodeUri: .
+    Runtime: java21
+    Tracing: Active
+    Architectures:
+      - arm64
+    EventInvokeConfig:
+      MaximumRetryAttempts: 0
+    
+    
+    Environment:
+      Variables:
+        ENV: !Ref Env
+        AWS_SES_SOURCE: noreply@poja.io
+        AWS_EVENTBRIDGE_BUS: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/eventbridge/bus-name}}'
+        AWS_EVENT_STACK_1_SQS_QUEUE_URL: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/1/sqs/mailbox-queue-url}}'
+        AWS_EVENT_STACK_2_SQS_QUEUE_URL: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/2/sqs/mailbox-queue-url}}'
+        
+        SPRING_DATASOURCE_URL: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/db/url}}'
+        SPRING_DATASOURCE_USERNAME: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/db/user/username}}'
+        SPRING_DATASOURCE_PASSWORD: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/db/user/password}}'
+
+        JAVA_TOOL_OPTIONS: -XX:+TieredCompilation -XX:TieredStopAtLevel=1 -Dspring.main.lazy-initialization=true -Dspring.data.jpa.repositories.bootstrap-mode=lazy -Dspring.datasource.max-active=5 -Dspring.datasource.max-idle=1 -Dspring.datasource.min-idle=1 -Dspring.datasource.initial-size=1
+
+Parameters:
+  Env:
+    Type: String
+
+Resources:
+  
+  FrontalFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: io.poja.health.handler.LambdaHandler::handleRequest
+      MemorySize: 512
+      Timeout: 30
+      Role: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/execution/role-arn}}'
+      
+      FunctionUrlConfig:
+        AuthType: NONE
+        InvokeMode: BUFFERED
+        
+      ReservedConcurrentExecutions: 5
+
+  WorkerFunction1:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: io.poja.health.handler.MailboxEventHandler::handleRequest
+      MemorySize: 1024
+      Timeout: 600 #note(sqs-visibility)
+      Role: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/execution/role-arn}}'
+      Events:
+        AllEvents:
+          Type: SQS
+          Properties:
+            Queue: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/1/sqs/mailbox-queue-arn}}'
+            BatchSize: 5
+      ReservedConcurrentExecutions: 5
+
+  WorkerFunction2:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: io.poja.health.handler.MailboxEventHandler::handleRequest
+      MemorySize: 1024
+      Timeout: 600 #note(sqs-visibility)
+      Role: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/execution/role-arn}}'
+      Events:
+        AllEvents:
+          Type: SQS
+          Properties:
+            Queue: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/2/sqs/mailbox-queue-arn}}'
+            BatchSize: 5
+      ReservedConcurrentExecutions: 5
+
+  ApiUrlSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Join [ '', [ /hcp-37762aa0/, !Ref Env, /api/url ] ]
+      Type: String
+      Value: !GetAtt FrontalFunctionUrl.FunctionUrl
+  
+Outputs:
+  ApiUrl:
+    Description: Url to access the frontal function
+    Value: !GetAtt FrontalFunctionUrl.FunctionUrl
+        
