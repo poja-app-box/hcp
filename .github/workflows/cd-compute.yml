@@ -47,6 +47,29 @@ jobs:
         run: |
           printf "tasks.named('test').configure {\n    enabled = false\n}" >> build.gradle
 
+      - name: Extract Gradle distribution version
+        run: |
+          url=$(grep '^distributionUrl=' gradle/wrapper/gradle-wrapper.properties || true)
+          version=${url##*/gradle-}
+          version=${version%-bin.zip}
+          version=${version%-all.zip}
+          case "$version" in
+            [0-9]*) ;;
+            *) version='' ;;
+          esac
+          if [ -z "$version" ]; then
+            echo "No Gradle version found in gradle-wrapper.properties, letting Gradle pick its own version"
+          fi
+          echo "GRADLE_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Pin the Gradle wrapper
+        run: |
+          if [ -n "$GRADLE_VERSION" ]; then
+            gradle wrapper --gradle-version "$GRADLE_VERSION"
+          else
+            gradle wrapper
+          fi
+
       - run: sam build
 
       - name: Deploy application
