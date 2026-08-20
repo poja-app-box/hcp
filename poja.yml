@@ -1,0 +1,61 @@
+compute:
+  api_gateway_timeout: 30000
+  frontal_function_invocation_method: lambda-url
+  frontal_function_timeout: 30
+  frontal_memory: 512
+  workers:
+  - batch: 5
+    memory: 1024
+    reserved_concurrent_executions_nb: 5
+    timeout: 600
+  - batch: 5
+    memory: 1024
+    reserved_concurrent_executions_nb: 5
+    timeout: 600
+concurrency:
+  frontal_reserved_concurrent_executions_nb: 5
+database:
+  with_database: none
+emailing:
+  ses_source: noreply@poja.io
+gen_api_client:
+  aws_account_id: 'null'
+  codeartifact_domain_name: 'null'
+  codeartifact_repository_name: 'null'
+  ts_client_api_url_env_var_name: 'null'
+  ts_client_default_openapi_server_url: 'null'
+  with_gen_clients: 'false'
+  with_publish_to_npm_registry: 'false'
+general:
+  app_name: hcp-37762aa0
+  cli_version: 21.7.1
+  custom_java_deps: poja-custom-java-deps.txt
+  custom_java_env_vars: poja-custom-java-env-vars.txt
+  custom_java_repositories: poja-custom-java-repositories.txt
+  java_main_class: PojaApplication
+  package_full_name: io.poja.health
+  poja_domain_owner: 'null'
+  poja_python_repository_domain: 'null'
+  poja_python_repository_name: 'null'
+  with_snapstart: 'false'
+integration:
+  with_codeql: 'false'
+  with_file_storage: 'false'
+  with_sentry: 'false'
+  with_sonar: 'false'
+  with_swagger_ui: 'false'
+networking:
+  region: eu-west-3
+  ssm_sg_id: 'null'
+  ssm_subnet1_id: 'null'
+  ssm_subnet2_id: 'null'
+  with_own_vpc: 'false'
+scheduled_tasks: null
+testing:
+  custom_java_gradle_test_args: poja-custom-java-gradle-test-args.txt
+  custom_java_test_env_vars: poja-custom-java-test-env-vars.txt
+  jacoco_min_coverage: '0'
+  java_facade_it: FacadeIT
+  max_heap_size: null
+  min_heap_size: null
+  stack_size: null

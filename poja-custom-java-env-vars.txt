@@ -1,0 +1,3 @@
+SPRING_DATASOURCE_URL: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/db/url}}'
+SPRING_DATASOURCE_USERNAME: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/db/user/username}}'
+SPRING_DATASOURCE_PASSWORD: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/db/user/password}}'
