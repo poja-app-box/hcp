@@ -22,13 +22,10 @@ class HealthPlaywrightIT extends FacadeIT {
   private static final String DEFAULT_URL = "https://poja.io";
   private static final String CUSTOM_URL = "https://example.com";
 
-  @Autowired
-  private TestRestTemplate restTemplate;
-  @MockBean
-  private EventProducer<WebsiteTitleCheckRequested> eventProducerMock;
+  @Autowired private TestRestTemplate restTemplate;
+  @MockBean private EventProducer<WebsiteTitleCheckRequested> eventProducerMock;
 
-  @Captor
-  private ArgumentCaptor<Collection<WebsiteTitleCheckRequested>> eventsCaptor;
+  @Captor private ArgumentCaptor<Collection<WebsiteTitleCheckRequested>> eventsCaptor;
 
   @Test
   void check_website_title_with_default_url_ok() {
@@ -42,7 +39,7 @@ class HealthPlaywrightIT extends FacadeIT {
   @Test
   void check_website_title_with_explicit_url_ok() {
     ResponseEntity<String> response =
-      restTemplate.getForEntity("/health/playwright?url=" + CUSTOM_URL, String.class);
+        restTemplate.getForEntity("/health/playwright?url=" + CUSTOM_URL, String.class);
 
     assertEquals(OK, response.getStatusCode());
     assertEquals("OK", response.getBody());

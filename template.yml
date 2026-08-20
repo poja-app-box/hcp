@@ -4,11 +4,9 @@ Description: hcp-37762aa0 - Computation and API
 
 Globals:
   Function:
-    CodeUri: .
-    Runtime: java21
+    # CodeUri, Runtime and Architectures are per-function now: the workers are
+    # PackageType Image, which rejects the first two and needs x86_64.
     Tracing: Active
-    Architectures:
-      - arm64
     EventInvokeConfig:
       MaximumRetryAttempts: 0
     Environment:
@@ -26,11 +24,22 @@ Globals:
 Parameters:
   Env:
     Type: String
+  # Both workers run the identical image. Letting sam build it per function would
+  # push two byte-identical copies to two ECR repositories, so CI builds and pushes
+  # it once and passes the tag in here instead.
+  WorkerImageUri:
+    Type: String
 
 Resources:
   FrontalFunction:
     Type: AWS::Serverless::Function
     Properties:
+      # Stays a zip: it only publishes events, never drives a browser, so it keeps
+      # arm64's cheaper GB-second rate and remains eligible for SnapStart.
+      CodeUri: .
+      Runtime: java21
+      Architectures:
+        - arm64
       Handler: io.poja.health.handler.LambdaHandler::handleRequest
       MemorySize: 512
       Timeout: 30
@@ -46,8 +55,15 @@ Resources:
   WorkerFunction1:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: io.poja.health.handler.MailboxEventHandler::handleRequest
-      MemorySize: 1024
+      # Not settable through Globals, unlike Tracing and Environment.
+      PackageType: Image
+      ImageUri: !Ref WorkerImageUri
+      Architectures:
+        - x86_64 # the Playwright image's arm64 variant is experimental
+      ImageConfig:
+        Command:
+          - io.poja.health.handler.MailboxEventHandler::handleRequest
+      MemorySize: 2048 # Chromium wants the CPU that comes with it
       Timeout: 600 #note(sqs-visibility)
       Role: !GetAtt ExecutionRole.Arn
       FunctionName: !Sub
@@ -60,12 +76,21 @@ Resources:
             Queue: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/1/sqs/mailbox-queue-arn}}'
             BatchSize: 5
       ReservedConcurrentExecutions: 5
+      EphemeralStorage:
+        Size: 1024
 
   WorkerFunction2:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: io.poja.health.handler.MailboxEventHandler::handleRequest
-      MemorySize: 1024
+      # Not settable through Globals, unlike Tracing and Environment.
+      PackageType: Image
+      ImageUri: !Ref WorkerImageUri
+      Architectures:
+        - x86_64 # the Playwright image's arm64 variant is experimental
+      ImageConfig:
+        Command:
+          - io.poja.health.handler.MailboxEventHandler::handleRequest
+      MemorySize: 2048 # Chromium wants the CPU that comes with it
       Timeout: 600 #note(sqs-visibility)
       Role: !GetAtt ExecutionRole.Arn
       FunctionName: !Sub
@@ -78,6 +103,8 @@ Resources:
             Queue: !Sub '{{resolve:ssm:/hcp-37762aa0/${Env}/2/sqs/mailbox-queue-arn}}'
             BatchSize: 5
       ReservedConcurrentExecutions: 5
+      EphemeralStorage:
+        Size: 1024
 
   FrontalFunctionLogGroup:
     Type: AWS::Logs::LogGroup
