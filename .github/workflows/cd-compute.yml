@@ -100,5 +100,5 @@ jobs:
           echo "WORKER_IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
 
       - name: Deploy application
-        run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name ${{ github.ref_name }}-compute-hcp-37762aa0 --capabilities CAPABILITY_IAM --parameter-overrides Env=${{ github.ref_name }} WorkerImageUri=$WORKER_IMAGE_URI --resolve-s3 --tags app=hcp-37762aa0 env=${{ github.ref_name }} user:poja=hcp-37762aa0
+        run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name ${{ github.ref_name }}-compute-hcp-37762aa0 --capabilities CAPABILITY_IAM --parameter-overrides Env=${{ github.ref_name }} WorkerImageUri=$WORKER_IMAGE_URI --resolve-s3 --image-repository ${WORKER_IMAGE_URI%:*} --tags app=hcp-37762aa0 env=${{ github.ref_name }} user:poja=hcp-37762aa0
 
