@@ -25,7 +25,11 @@ public class WebsiteTitleCheckRequestedService implements Consumer<WebsiteTitleC
           "--no-sandbox",
           // /dev/shm is 64 MB on Lambda, far below what Chromium assumes.
           "--disable-dev-shm-usage",
-          "--disable-gpu");
+          "--disable-gpu",
+          // Lambda's PID namespace breaks Chromium's zygote, so renderers die at fork.
+          // Running them in-process is what makes newPage() survive here.
+          "--no-zygote",
+          "--single-process");
 
   @Override
   public void accept(WebsiteTitleCheckRequested event) {
