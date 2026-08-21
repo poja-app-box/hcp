@@ -33,6 +33,10 @@ configurations {
     compileOnly {
         extendsFrom annotationProcessor
     }
+
+    // Resolved on its own so the driver bundle never reaches runtimeClasspath,
+    // and so never the frontal's zip. Only the worker image grafts it back.
+    playwrightDriverBundle
 }
 
 
@@ -133,7 +137,21 @@ dependencies {
 
     implementation 'org.reflections:reflections:0.10.2'
 
-    implementation 'com.microsoft.playwright:playwright:1.62.0'
+    implementation('com.microsoft.playwright:playwright:1.62.0') {
+        // 193 MiB of Node driver for every platform Playwright supports. Nothing
+        // compiles against it, and the frontal's zip must stay under Lambda's
+        // 250 MB unzipped quota, so it is added back only in the worker image.
+        exclude group: 'com.microsoft.playwright', module: 'driver-bundle'
+    }
+    playwrightDriverBundle 'com.microsoft.playwright:driver-bundle:1.62.0'
+
+    // WebsiteTitleCheckRequestedTest drives a real Chromium, so the tests need the
+    // bundle the line above withholds. testRuntimeOnly does not feed bootJar, so the
+    // frontal's zip stays lean.
+    testRuntimeOnly 'com.microsoft.playwright:driver-bundle:1.62.0'
+
+    // The worker image is not a Lambda base image, so it brings its own runtime loop.
+    implementation 'com.amazonaws:aws-lambda-java-runtime-interface-client:2.4.2'
 
     compileOnly 'org.projectlombok:lombok:1.18.30'
     annotationProcessor 'org.projectlombok:lombok:1.18.30'
@@ -149,4 +167,11 @@ dependencies {
 
 
 
+}
+
+// Version must track the playwright dependency above: the driver refuses a bundle
+// it was not built against.
+tasks.register('collectPlaywrightDriverBundle', Sync) {
+    from configurations.playwrightDriverBundle
+    into layout.buildDirectory.dir('playwright-driver')
 }

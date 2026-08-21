@@ -1,0 +1,8 @@
+# sam build ships this context to the Docker daemon on every build; the Gradle
+# output alone is tens of MB and is rebuilt inside the image anyway.
+build/
+.gradle/
+.aws-sam/
+.idea/
+.git/
+google-java-format-*.jar

@@ -23,7 +23,7 @@ jobs:
   deploy-api:
     if: ${{ github.ref_name == 'prod' || github.ref_name == 'preprod' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30 # the worker image carries a browser
 
     env:
       AWS_REGION: eu-west-3
@@ -72,6 +72,33 @@ jobs:
 
       - run: sam build
 
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+
+      # Both workers share this one image. Building it here rather than letting
+      # sam build it per function keeps it to a single build and a single push.
+      - name: Build and push the worker image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          REPOSITORY: hcp-37762aa0-worker
+        run: |
+          aws ecr describe-repositories --repository-names "$REPOSITORY" > /dev/null 2>&1 \
+            || aws ecr create-repository \
+                 --repository-name "$REPOSITORY" \
+                 --image-tag-mutability IMMUTABLE \
+                 --image-scanning-configuration scanOnPush=true
+
+          # Expire everything but the most recent images, so the ~2 GB worker image
+          # does not accumulate one copy per deploy.
+          aws ecr put-lifecycle-policy \
+            --repository-name "$REPOSITORY" \
+            --lifecycle-policy-text '{"rules":[{"rulePriority":1,"description":"keep the last 5 images","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":5},"action":{"type":"expire"}}]}'
+
+          IMAGE_URI="$REGISTRY/$REPOSITORY:${{ github.sha }}"
+          docker build -t "$IMAGE_URI" .
+          docker push "$IMAGE_URI"
+          echo "WORKER_IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
+
       - name: Deploy application
-        run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name ${{ github.ref_name }}-compute-hcp-37762aa0 --capabilities CAPABILITY_IAM --parameter-overrides Env=${{ github.ref_name }} --resolve-s3 --tags app=hcp-37762aa0 env=${{ github.ref_name }} user:poja=hcp-37762aa0
+        run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name ${{ github.ref_name }}-compute-hcp-37762aa0 --capabilities CAPABILITY_IAM --parameter-overrides Env=${{ github.ref_name }} WorkerImageUri=$WORKER_IMAGE_URI --resolve-s3 --tags app=hcp-37762aa0 env=${{ github.ref_name }} user:poja=hcp-37762aa0
 
